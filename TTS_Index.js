@@ -1127,7 +1127,7 @@ async function onMessageEvent(messageId, lastCharIndex) {
     }
 
     // if we only want to process part of the message
-    if (lastCharIndex) {
+    if (typeof lastCharIndex === 'number') {
         message.mes = message.mes.substring(0, lastCharIndex);
     }
 
@@ -1161,6 +1161,24 @@ async function onMessageEvent(messageId, lastCharIndex) {
     // Don't generate if message is a user message and user message narration is disabled
     if (message.is_user && !extension_settings.tts.narrate_user) {
         return;
+    }
+
+    // If there is stale queued/playing audio from a different character, clear it before enqueuing.
+    // This prevents previous-speaker paragraphs from bleeding into the next speaker in rapid group turns.
+    const queuedSpeaker =
+        currentTtsJob?.name
+        ?? currentAudioJob?.char
+        ?? ttsJobQueue[0]?.name
+        ?? audioJobQueue[0]?.char
+        ?? null;
+
+    if (queuedSpeaker && queuedSpeaker !== message.name) {
+        console.debug(`TTS speaker switch detected (${queuedSpeaker} -> ${message.name}); clearing stale TTS jobs.`);
+        resetTtsPlayback();
+    }
+
+    if (lastMessage?.name && lastMessage.name !== message.name) {
+        lastPositionOfParagraphEnd = -1;
     }
 
     // New messages, add new chat to history
