@@ -1126,10 +1126,16 @@ async function onMessageEvent(messageId, lastCharIndex) {
         return;
     }
 
+    // MGB Edit wCodex Support XXXXXXXXX
     // if we only want to process part of the message
-    if (lastCharIndex) {
+    // Previous code:
+    // if (lastCharIndex) {
+    //     message.mes = message.mes.substring(0, lastCharIndex);
+    // }
+    if (typeof lastCharIndex === 'number') {
         message.mes = message.mes.substring(0, lastCharIndex);
     }
+    // MGB Edit wCodex Support XXXXXXXXX
 
     const isLastMessageInCurrent = () =>
         lastMessage &&
@@ -1162,6 +1168,27 @@ async function onMessageEvent(messageId, lastCharIndex) {
     if (message.is_user && !extension_settings.tts.narrate_user) {
         return;
     }
+
+    // MGB Edit wCodex Support XXXXXXXXX
+    // If there is stale queued/playing audio from a different character, clear it before enqueuing.
+    // This prevents previous-speaker paragraphs from bleeding into the next speaker in rapid group turns.
+    // Previous behavior had no speaker-transition queue reset.
+    const queuedSpeaker =
+        currentTtsJob?.name
+        ?? currentAudioJob?.char
+        ?? ttsJobQueue[0]?.name
+        ?? audioJobQueue[0]?.char
+        ?? null;
+
+    if (queuedSpeaker && queuedSpeaker !== message.name) {
+        console.debug(`TTS speaker switch detected (${queuedSpeaker} -> ${message.name}); clearing stale TTS jobs.`);
+        resetTtsPlayback();
+    }
+
+    if (lastMessage?.name && lastMessage.name !== message.name) {
+        lastPositionOfParagraphEnd = -1;
+    }
+    // MGB Edit wCodex Support XXXXXXXXX
 
     // New messages, add new chat to history
     lastMessageHash = hashNew;
